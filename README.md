@@ -1,11 +1,7 @@
-# BDB
-
-Big Data Bowl 2022 Submission: https://htmlpreview.github.io/?https://github.com/qmaclean/BDB_22/blob/master/NFL_Big_Data_Bowl_2022_Notebook.html
-
 
 Evaluating Gunner's Performance
 ================
-Quinn MacLean
+
 
 # Introduction
 
@@ -72,3 +68,47 @@ Pulling it all together, we see that Webster had the most Tackle Opportunities o
 
 <img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/tackle_prob_summary.png" width="100%" />
 
+# Expected Gunner Distance to Ball and Expected Return Yards
+TOPA is a helpful metric to evaluate what Gunner's put themselves in the best position for a tackle opportunity on a punt play. However, as we see know not every punt play is returned by the returner. To help to evaluate players in all punts, we are creating two more models to evaluate which Gunner's get close to the returner at punt reception and which Gunners are the best at limiting return yardage. 
+
+The distribution chart below illustrates that there is vast difference amongst a gunner's ability to get to the ball for a given punt play, which indicates that some gunners are better at getting to the returner and thus limiting return yardage. 
+
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/Gunner%20Position%20Distribution.png" width="50%" />
+
+This leads to the creation of the **Expected Distance to Ball** and **Expected Return Yards** models, which were both trained using a Random Forest regression model and optimized using a 10-fold repeated cross validation (5x). This helps to resample the dataset to prevent any training bias. The purpose of the first model is to predict what a gunner's distance to ball will be. The prediction at punt reception will be used to compare to where the gunner's actual distance is versus expectation. The purpose of the second model, is to understand how a player's proximity, speed, and other variables (same used to predict tackle opportunity probability) can influence return yardage. The prediction at punt reception can used as the official metric to evaluate how a gunner can limit return yardage. 
+
+To evaluate the accuracy and effectiveness of the models, R-squared, Root Mean Square Error (RMSE), and Mean Absolute Error (MAE) were chosen as the main model evaluation metrics. R-squared represents how close the predictions are to the actual values from a proportional or percentage value, which for these two models we got >98%. RMSE is a measurement of error rate for all observations and MAE is the mean error. We can see below that both these models have less than a 2% error rate (RMSE) and an average observed difference of less than 1 yard (MAE). 
+
+Ball Distance Metrics: \
+-R-squared: 0.990\
+-RMSE: 0.950 \
+-MAE: 0.520 \
+
+Return Yards Metrics: \
+-R-squared: 0.983 \
+-RMSE: 1.61 \
+-MAE: 0.687 \
+
+There are two applications of these models. The first is shown below as a way to augment film study by showing per punt how the gunner was able to get to the returner. To visualize the prediction, three lines were added to the sample play to show these models prediction per second. The first line (in red) shows the expected return yardage from the punt returner. The second two lines (in grey) show the predicted distance each gunner will be the punt returner by the point of reception. We can see how the predictions change as the play develops. 
+
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/ryue_bdue.gif" width="50%" />
+
+### Gunner's Return Yard Under Expected and Ball Distance Under Expected ###
+The second application of the model is to evaluate what occurred at punt reception versus expectation. The average delta will be created as a metric for evaluation of Gunners. This leads to the creation of the **Return Yards Under Expected (RYUE)** and **Ball Distance Under Expected (BDUE)**. The Gunners who were able to limit the most return yardage and get closer to the ball than expected would ultimately be best at their position. Similar to TOPA, we see Matthew Slater and Justin Bethel rank towards the top. What is interesting about Webster, is he ranks high in his ability to get to the ball (BDUE) but doesn't put himself in the best position to limit return yardage, which was a similar theme for his lower TOPA compared to other Gunners. J.T. Gray also ranks high BDUE (~7 yards closer to the ball than expected on average), and RYUE.
+
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/ryue_bdue_img.png" width="50%" />
+
+### Application of Models & Future Opportunities
+These models were specifically designed with the intent to evaluate Gunner's effectiveness in punt plays but could easily be extended to evaluate other players on the punt play (Vises, others in pursuit). Other players on the punt team can use the learnings of the model to fine tune their speed, direction and angle as a way to commit to the angle of pursuit. Another application of the models is to help to augment film review using the tackle opportunity probability visualization, distance to ball, and expected return yards all by frame. These visualizations could easily be replicated for other punt plays as a way for players to understand their attack to a returner. Lastly, knowing that Gunner's with the best commitment to angle of pursuit are able to limit return yardage, it may make sense for returning teams to have a vise (or other player), 10-15 yards from the line of scrimmage as a way to create more room to block for the return and cut off the angle for the Gunner (This was shown in our sample play). 
+
+ 
+
+
+
+[Source Code](https://github.com/qmaclean/BDB_22) 
+
+[Personal Twitter](https://twitter.com/QuinnsWisdom)
+
+[Kaggle](https://www.kaggle.com/qmaclean/evaluating-gunner-s-performance)
+
+[Sharable Website](https://htmlpreview.github.io/?https://github.com/qmaclean/BDB_22/blob/master/NFL_Big_Data_Bowl_2022_Notebook.html)
