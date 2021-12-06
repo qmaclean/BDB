@@ -40,21 +40,21 @@ This scenario helps to paint a good picture of how a Gunner's position can creat
 
 In the scenario above, we showed results of the **Tackle Opportunity Probability Model**, which can be used to evaluate Gunner's ability to put themselves in a better position for a tackle opportunity from snap to punt reception. 
 
-For creating our model, we used NFL tracking data and filtered for the following: \
-1. Punt Plays \
-2. Using PFF data, filtering for those who were assigned as Gunner's \
-3. Filtering for catchable punts (filters out touchbacks) \
+For creating our model, we used NFL tracking data and filtered for the following: 
+1. Punt Plays 
+2. Using PFF data, filtering for those who were assigned as Gunner's 
+3. Filtering for catchable punts (filters out touchbacks) 
 
 Filtering out touchbacks helps to model for plays where a Gunner could have had a high probability of a tackle even in cases of a fair catch (i.e. forcing a fair catch).
 
-In building the model, the following variables were included for consideration: \
--Gunner's field position and direction variance \
--Gunner's speed variance \
--Distance from Line of Scrimmage (LOS) \
--Distance from ball \
--Total distance travelled \
--Avg. separation from closest players \
--Position types on the field (# of Gunners, # of Vises) \
+In building the model, the following variables were included for consideration: 
+-Gunner's field position and direction variance 
+-Gunner's speed variance 
+-Distance from Line of Scrimmage (LOS) 
+-Distance from ball 
+-Total distance travelled 
+-Avg. separation from closest players 
+-Position types on the field (# of Gunners, # of Vises) 
 
 The resulting classification model is a [Gradient Boosted Machine (GBM)](http://uc-r.github.io/gbm_regression) using down sampling, 10 cross fold validations, and 5 repeats to properly train and improve the performance of the model. Gradient Boosted Machines is a machine learning technique that uses multiple learning algorithms with the goal of "boosting" or reducing bias and variance. It essentially converts weak learning models into a "boosted" or stronger one. The custom sampling techniques added helps to iterate through our decision trees to create the most accurate model possible. 
 
