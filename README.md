@@ -24,7 +24,7 @@ These four metrics will help to measure which gunners help to limit the opposing
 
 The animated play below shows a 3-yard punt return where two Gunners, Nsimba Webster (#14) and David Long (#25) close in on the punt returner to limit his overall yardage and do their best to tackle the returner. In this example, Webster is credited with the tackle. This visual helps to portray a common punt scenario so we will use this play to illustrate gunner effectiveness throughout the rest of this paper. First, we want to define tackle opportunity as the gunner’s involvement of a tackle either being the primary tackler, assisted tackler, or even having a missed tackle. Including assisted tacklers and missed tacklers helps to get a larger sample size of Gunners who were involved in tackling plays.
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/initial_animation.gif" width="50%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/initial_animation.gif" width="75%" />
 
 If we break down the tackle opportunity by frame in the play above, Webster had ~30% probability of a tackle at snap, ~28% at punt reception. We can see a wide variation in probability between that timeframe. The probability dropped to a low at 18%, a high at 30% (at the snap) and had ~25.3% average probability through the duration of the play. 
 
@@ -58,7 +58,7 @@ In our evaluating our model, we got a mean ROC score of 80.2%, mean sensitivity 
 
 Another way to interpret our model is through visualizing the feature importance (Gini impurity), which helps to describe the decision tree nodes in order of relative importance. Basically, this helps to show what factors contribute the most to our prediction output. We can see that a player's distance to the ball, their position variance per second, and overall speed variance are the biggest factors that contribute to player's tackle opportunity probability. It's interesting to see that the number of total Vises on the receiving team doesn't have much importance in a Gunner's Tackle Opportunity Probability.
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/feature_importance.png" width="50%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/feature_importance.png" width="75%" />
 
 What this boils down to is the commitment to the angle of pursuit at the snap. We can see this by visualizing all of Webster's punt routes for received punts (Green lines are tackles; Blue lines are missed tackles and Grey lines are non-tackles). In the first few seconds of the snap, you see a rather clean angle being formed and that's due to the gunner's commitment to the angle. 
 
@@ -66,14 +66,14 @@ What this boils down to is the commitment to the angle of pursuit at the snap. W
 
 Pulling it all together, we see that Webster had the most Tackle Opportunities of Gunners in 2020 for returnable punts but a lower TOPA (Tackle Opportunity Probability Added). A big part of his ability to create more Tackle Opportunities is his relatively high avg speed and higher separation from other vises. Contrary to Webster in strategy is Justin Bethel, who had the one of the highest avg. TOPA due to his high avg speed, high avg max speed, and low speed variance (usually straight shot in route). Bethel was the only gunner to eclipse 20 mph in his average max speed per punt. Lastly, we see Matthew Slater listed high here and that's important to note considering he's been to 9 Pro Bowls as a Gunner (most all-time).
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/tackle_prob_summary.png" width="50%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/tackle_prob_summary.png" width="100%" />
 
 # Expected Gunner Distance to Ball and Expected Return Yards
 TOPA is a helpful metric to evaluate what Gunner's put themselves in the best position for a tackle opportunity on a punt play. However, as we see know not every punt play is returned by the returner. To help to evaluate players in all punts, we are creating two more models to evaluate which Gunner's get close to the returner at punt reception and which Gunners are the best at limiting return yardage. 
 
 The distribution chart below illustrates that there is vast difference amongst a gunner's ability to get to the ball for a given punt play, which indicates that some gunners are better at getting to the returner and thus limiting return yardage. 
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/Gunner%20Position%20Distribution.png" width="50%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/Gunner%20Position%20Distribution.png" width="75%" />
 
 This leads to the creation of the **Expected Distance to Ball** and **Expected Return Yards** models, which were both trained using a Random Forest regression model and optimized using a 10-fold repeated cross validation (5x). This helps to resample the dataset to prevent any training bias. The purpose of the first model is to predict what a gunner's distance to ball will be. The prediction at punt reception will be used to compare to where the gunner's actual distance is versus expectation. The purpose of the second model, is to understand how a player's proximity, speed, and other variables (same used to predict tackle opportunity probability) can influence return yardage. The prediction at punt reception can used as the official metric to evaluate how a gunner can limit return yardage. 
 
@@ -82,21 +82,21 @@ To evaluate the accuracy and effectiveness of the models, R-squared, Root Mean S
 Ball Distance Metrics: \
 -R-squared: 0.990\
 -RMSE: 0.950 \
--MAE: 0.520 \
+-MAE: 0.520 
 
 Return Yards Metrics: \
 -R-squared: 0.983 \
 -RMSE: 1.61 \
--MAE: 0.687 \
+-MAE: 0.687 
 
 There are two applications of these models. The first is shown below as a way to augment film study by showing per punt how the gunner was able to get to the returner. To visualize the prediction, three lines were added to the sample play to show these models prediction per second. The first line (in red) shows the expected return yardage from the punt returner. The second two lines (in grey) show the predicted distance each gunner will be the punt returner by the point of reception. We can see how the predictions change as the play develops. 
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/ryue_bdue.gif" width="50%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/ryue_bdue.gif" width="75%" />
 
 ### Gunner's Return Yard Under Expected and Ball Distance Under Expected ###
 The second application of the model is to evaluate what occurred at punt reception versus expectation. The average delta will be created as a metric for evaluation of Gunners. This leads to the creation of the **Return Yards Under Expected (RYUE)** and **Ball Distance Under Expected (BDUE)**. The Gunners who were able to limit the most return yardage and get closer to the ball than expected would ultimately be best at their position. Similar to TOPA, we see Matthew Slater and Justin Bethel rank towards the top. What is interesting about Webster, is he ranks high in his ability to get to the ball (BDUE) but doesn't put himself in the best position to limit return yardage, which was a similar theme for his lower TOPA compared to other Gunners. J.T. Gray also ranks high BDUE (~7 yards closer to the ball than expected on average), and RYUE.
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/ryue_bdue_img.png" width="50%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/ryue_bdue_img.png" width="100%" />
 
 ### Application of Models & Future Opportunities
 These models were specifically designed with the intent to evaluate Gunner's effectiveness in punt plays but could easily be extended to evaluate other players on the punt play (Vises, others in pursuit). Other players on the punt team can use the learnings of the model to fine tune their speed, direction and angle as a way to commit to the angle of pursuit. Another application of the models is to help to augment film review using the tackle opportunity probability visualization, distance to ball, and expected return yards all by frame. These visualizations could easily be replicated for other punt plays as a way for players to understand their attack to a returner. Lastly, knowing that Gunner's with the best commitment to angle of pursuit are able to limit return yardage, it may make sense for returning teams to have a vise (or other player), 10-15 yards from the line of scrimmage as a way to create more room to block for the return and cut off the angle for the Gunner (This was shown in our sample play). 
