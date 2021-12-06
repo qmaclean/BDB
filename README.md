@@ -36,7 +36,7 @@ The reason for Webster's drop in probability to 18% was that he had beat his opp
 
 This scenario helps to paint a good picture of how a Gunner's position can create traffic for the return team resulting in a tackle opportunity or reduction in return yardage. 
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/tackle_probability.gif" width="100%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/tackle_opp_probability.gif" width="75%" />
 
 In the scenario above, we showed results of the **Tackle Opportunity Probability Model**, which can be used to evaluate Gunner's ability to put themselves in a better position for a tackle opportunity from snap to punt reception. 
 
@@ -62,11 +62,11 @@ In our evaluating our model, we got a mean ROC score of 80.2%, mean sensitivity 
 
 Another way to interpret our model is through visualizing the feature importance (Gini impurity), which helps to describe the decision tree nodes in order of relative importance. Basically, this helps to show what factors contribute the most to our prediction output. We can see that a player's distance to the ball, their position variance per second, and overall speed variance are the biggest factors that contribute to player's tackle opportunity probability. It's interesting to see that the number of total Vises on the receiving team doesn't have much importance in a Gunner's Tackle Opportunity Probability.
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/feature_importance.png" width="100%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/feature_importance.png" width="75%" />
 
 What this boils down to is the commitment to the angle of pursuit at the snap. We can see this by visualizing all of Webster's punt routes for received punts (Green lines are tackles; Blue lines are missed tackles and Grey lines are non-tackles). In the first few seconds of the snap, you see a rather clean angle being formed and that's due to the gunner's commitment to the angle. 
 
-<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/routes_run.gif" width="100%" />
+<img src="https://github.com/qmaclean/BDB_22/blob/master/viz_images/routes_run.gif" width="75%" />
 
 Pulling it all together, we see that Webster had the most Tackle Opportunities of Gunners in 2020 for returnable punts but a lower TOPA (Tackle Opportunity Probability Added). A big part of his ability to create more Tackle Opportunities is his relatively high avg speed and higher separation from other vises. Contrary to Webster in strategy is Justin Bethel, who had the one of the highest avg. TOPA due to his high avg speed, high avg max speed, and low speed variance (usually straight shot in route). Bethel was the only gunner to eclipse 20 mph in his average max speed per punt. Lastly, we see Matthew Slater listed high here and that's important to note considering he's been to 9 Pro Bowls as a Gunner (most all-time).
 
