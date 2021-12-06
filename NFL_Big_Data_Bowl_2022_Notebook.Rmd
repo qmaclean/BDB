@@ -1,0 +1,993 @@
+---
+title: "NFL Big Data Bowl 2022"
+author: "Quinn MacLean"
+output:
+  html_document:
+    df_print: paged
+header-includes:
+  - \usepackage{animate}
+---
+
+### Introduction
+The punt return can be one of the most dangerous and entertaining play in all of football and contains one of the most difficult jobs in the game of football: the role of the Gunner. 
+
+Dave Spadaro (Eagles Insider) had the best [description of the Gunner:](https://www.philadelphiaeagles.com/news/spadaro-the-gunner-dirty-nasty-job-the-eagles-do-very-well):
+
+"They're the guys who line up wide on punts, often face double-team blocking, get the snot knocked out of them after the ball is snapped, and then, once they break free from the blocks, have to sprint 50, 60 yards and get to the punt return man in time to halt any progress."
+
+The goal of my analysis is to [build on the initial research done by Michael Lopez](https://operations.nfl.com/gameday/analytics/stats-articles/visualizing-the-special-teams-gunner/) to add specific metrics to evaluate Gunners in the NFL based on available tracking data.
+
+We will be using 2020 tracking and scouting information to create four metrics to evaluate Gunner effectiveness during punts. The metrics are: \
+1. **Tackle Opportunity Probability Added (TOPA)**: The difference in expected probability of getting a tackle opportunity added from snap to punt received  \
+2. **Gunner's Distance to Ball at Punt Reception Under Expected (BDUE)**: The difference in Gunner's x-position to ball versus what was expected  \
+3. **Return Yards Under Expected (RYUE)**: The difference in actual return yards versus what was expected based on the Gunner's location metrics at punt reception \
+4. **Return Yards Under Exepcted (Non-Fair Catch Punts)**: The difference in actual return yards versus what was expected based on the Gunner's location metrics at punt reception for non-fair catch punts \
+
+These four metrics will help to measure which gunners help to limit the opposing team's starting position.
+
+### Tackle Opportunity Probability Added (TOPA)
+The animated play below shows a 3-yard punt return where two Gunners, Nsimba Webster (#14) and David Long (#25) close in on the punt returner to limit his overall yardage and do their best to tackle the returner. In this example, Webster is credited with the tackle. This visual helps to portray a common punt scenario so we will use this play to illustrate gunner effectiveness throughout the rest of this paper. First, we want to define tackle opportunity as the gunner's involvement of a tackle either being the primary tackler, assisted tackler, or even having a missed tackle. Including assisted tacklers and missed tacklers helps to get a larger sample size of Gunners who were involved in tackling plays. 
+```{r a1,echo=FALSE,warning=FALSE,message=FALSE}
+
+library(tidyverse)
+library(ggplot2)
+library(gganimate)
+library(cowplot)
+
+
+
+### horizontal animation ###
+
+sample<-read.csv("data_transforms/sample_tackle_prob.csv")
+
+
+example_play<-sample
+
+
+
+
+
+plot_field <- function(field_color="#006400", line_color = "#212529", number_color = "#ffffff") {
+  field_height <- 160/3
+  field_width <- 120
+  
+  field <- ggplot() +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(size = 13, hjust = 0.5),
+      plot.subtitle = element_text(hjust = 1),
+      legend.position = "bottom",
+      legend.title.align = 1,
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      axis.line = element_blank(),
+      panel.background = element_rect(fill = field_color, color = "white"),
+      panel.border = element_blank(),
+      aspect.ratio = field_height/field_width
+    ) +
+    # major lines
+    annotate(
+      "segment",
+      x = c(0, 0, 0,field_width, seq(10, 110, by=5)),
+      xend = c(field_width,field_width, 0, field_width, seq(10, 110, by=5)),
+      y = c(0, field_height, 0, 0, rep(0, 21)),
+      yend = c(0, field_height, field_height, field_height, rep(field_height, 21)),
+      colour = line_color
+    ) +
+    # hashmarks
+    annotate(
+      "segment",
+      x = rep(seq(10, 110, by=1), 4),
+      xend = rep(seq(10, 110, by=1), 4),
+      y = c(rep(0, 101), rep(field_height-1, 101), rep(160/6 + 18.5/6, 101), rep(160/6 - 18.5/6, 101)),
+      yend = c(rep(1, 101), rep(field_height, 101), rep(160/6 + 18.5/6 + 1, 101), rep(160/6 - 18.5/6 - 1, 101)),
+      colour = line_color
+    ) +
+    # yard numbers
+    annotate(
+      "text",
+      x = seq(20, 100, by = 10),
+      y = rep(12, 9),
+      label = c(seq(10, 50, by = 10), rev(seq(10, 40, by = 10))),
+      size = 10,
+      colour = number_color,
+    ) +
+    # yard numbers upside down
+    annotate(
+      "text",
+      x = seq(20, 100, by = 10),
+      y = rep(field_height-12, 9),
+      label = c(seq(10, 50, by = 10), rev(seq(10, 40, by = 10))),
+      angle = 180,
+      size = 10,
+      colour = number_color, 
+    )
+  
+  return(field)
+}
+
+
+example_play$team_name<-as.character(example_play$team_name)
+example_play$homeTeamAbbr<-as.character(example_play$homeTeamAbbr)
+example_play$visitorTeamAbbr<-as.character(example_play$visitorTeamAbbr)
+line_of_scrimmage = example_play$absoluteYardlineNumber
+to_go_line = line_of_scrimmage - example_play$yardsToGo
+df_colors = data.frame(home_1 = 'yellow',
+                       home_2 = 'dark blue',
+                       away_1 = 'blue',
+                       away_2 = 'light grey')
+
+example_play$frameId<-as.numeric(example_play$frameId)
+
+play_frames<-plot_field() + 
+  # line of scrimmage
+  annotate(
+    "segment",
+    x = line_of_scrimmage, xend = line_of_scrimmage, y = 0, yend = 160/3,
+    colour = "#0d41e1", size = 1.5
+  ) +  # first down marker
+  annotate(
+    "segment",
+    x = to_go_line, xend = to_go_line, y = 0, yend = 160/3,
+    colour = "#f9c80e", size = 1.5
+  )  +  # away team velocities
+geom_segment(
+  data = example_play %>% dplyr::filter(team_name == visitorTeamAbbr),
+  mapping = aes(x = x, y = y, xend = x + dir_x, yend = y + dir_y),
+  color = df_colors$away_1, size = 5, arrow = arrow(length = unit(1, "cm"),ends="last")
+)  + # home team velocities
+geom_segment(
+  data = example_play %>% dplyr::filter(team_name == example_play$homeTeamAbbr),
+  mapping = aes(x = x, y = y, xend = x + dir_x, yend = y + dir_y),
+  colour = df_colors$home_2, size = 2, arrow = arrow(length = unit(0.03, "npc"))
+) +  # away team locs and jersey numbers
+geom_point(
+  data = example_play %>% dplyr::filter(team_name == example_play$visitorTeamAbbr),
+  mapping = aes(x = x, y = y),
+  fill = "#f8f9fa", colour = df_colors$away_2,
+  shape = 21, alpha = 0.7, size = 8, stroke = 1.5
+)  + 
+  geom_text(
+  data = example_play %>% dplyr::filter(team_name == example_play$visitorTeamAbbr),
+  mapping = aes(x = x, y = y, label = jerseyNumber),
+  colour = df_colors$away_1, size = 4.5
+) +
+# home team locs and jersey numbers
+geom_point(
+  data = example_play %>% dplyr::filter(team_name == example_play$homeTeamAbbr),
+  mapping = aes(x = x, y = y),
+  fill = df_colors$home_1, colour = df_colors$home_2,
+  shape = 21, alpha = 0.7, size = 8, stroke = 1.5
+)  + geom_text(
+  data = example_play %>% dplyr::filter(team_name == example_play$homeTeamAbbr),
+  mapping = aes(x = x, y = y, label = jerseyNumber),
+  colour = df_colors$home_2, size = 4.5 
+)  + # ball
+geom_point(
+  data = example_play %>% dplyr::filter(team == "football"),
+  mapping = aes(x = x, y = y),
+  fill = "#935e38", colour = "#d9d9d9",
+  shape = 21, alpha = 0.7, size = 6, stroke = 1
+  ) +
+  labs(title = "(12:54) J.Hekker punts 39 yards to NE 23, Center-J.McQuaide. G.Olszewski to NE 26 for 3 yards (N.Webster, J.Hollins)") +
+  transition_time(frameId) +
+  ease_aes('linear') +
+  NULL
+
+
+play_length <- length(unique(sample$frameId))
+
+
+
+play_anim <- animate(
+  play_frames,
+  fps = 10, 
+  nframes = play_length,
+  width = 800,
+  height = 400,
+  end_pause = 0
+)
+
+play_anim
+
+
+
+
+```
+
+If we break down the tackle opportunity by frame in the play above, Webster had ~30% probability of a tackle at snap, ~28% at punt reception. We can see a wide variation in probability between that timeframe. The probability dropped to a low at 18%, a high at 30% (at the snap) and had ~25.3% average probability through the duration of the play. 
+
+The reason for Webster's drop in probability to 18% was that he had beat his opposing vise (#29) at the snap, #18 on the receiving team recognizes this and changes his position to seal the block for the returner. The increase in probability is due to the fact that by gaining the attention of the second defender, he actually created a log jam at the returner thus limiting his potential return yardage and increasing his probability of a tackle opportunity (Again, Webster was credited with the tackle).
+
+This scenario helps to paint a good picture of how a Gunner's position can create traffic for the return team resulting in a tackle opportunity or reduction in return yardage. 
+
+```{r a2,echo=FALSE,warning=FALSE,message=FALSE}
+
+
+
+
+load("viz_images/sample_gunner_tackle_animate.rdata")
+sample_gunner_tackle_animate
+# show play and visualization side by side with feature importance charts
+
+```
+
+
+In the scenario above, we showed results of the **Tackle Opportunity Probability Model**, which can be used to evaluate Gunner's ability to put themselves in a better position for a tackle opportunity from snap to punt reception. 
+
+For creating our model, we used NFL tracking data and filtered for the following: \
+1. Punt Plays \
+2. Using PFF data, filtering for those who were assigned as Gunner's \
+3. Filtering for catchable punts (filters out touchbacks) \
+
+Filtering out touchbacks helps to model for plays where a Gunner could have had a high probability of a tackle even in cases of a fair catch (i.e. forcing a fair catch).
+
+In building the model, the following variables were included for consideration: \
+-Gunner's field position and direction variance \
+-Gunner's speed variance \
+-Distance from Line of Scrimmage (LOS) \
+-Distance from ball \
+-Total distance travelled \
+-Avg. separation from closest players \
+-Position types on the field (# of Gunners, # of Vises) \
+
+The resulting classification model is a [Gradient Boosted Machine (GBM)](http://uc-r.github.io/gbm_regression) using down sampling, 10 cross fold validations, and 5 repeats to properly train and improve the performance of the model. Gradient Boosted Machines is a machine learning technique that uses multiple learning algorithms with the goal of "boosting" or reducing bias and variance. It essentially converts weak learning models into a "boosted" or stronger one. The custom sampling techniques added helps to iterate through our decision trees to create the most accurate model possible. 
+
+In our evaluating our model, we got a mean ROC score of 80.2%, mean sensitivity score of 66.1%, and a mean specificity score of 80.6%. Essentially, our model is better at calculating non tackle opportunities than calculating tackle opportunities. 
+
+Another way to interpret our model is through visualizing the feature importance (Gini impurity), which helps to describe the decision tree nodes in order of relative importance. Basically, this helps to show what factors contribute the most to our prediction output. We can see that a player's distance to the ball, their position variance per second, and overall speed variance are the biggest factors that contribute to player's tackle opportunity probability. It's interesting to see that the number of total Vises on the receiving team doesn't have much importance in a Gunner's Tackle Opportunity Probability. 
+
+
+```{r a3,echo=FALSE,warning=FALSE,message=FALSE}
+
+library(gbm)
+library(Metrics)
+library(ggthemes)
+
+GBM_lite<-readRDS("model output/GBM_lite.rds")
+
+Effects <- tibble::as_tibble(gbm::summary.gbm(GBM_lite$finalModel, 
+                                         plotit = FALSE))
+
+Effects<-Effects %>%
+  mutate(var = recode(var,
+                      ball_land_dis_from_player = "player distance to ball",
+                      var_x = "x position variance",
+                      var_s = "speed variance",
+                      sum_dis = "total distance traveled",
+                      closest_receiving_vises_separation = "distance between gunner to closest vise",
+                      closest_receiving_vises_snap_separation =
+"distance between gunner to closest vise at the snap",
+var_dir_x = "angle of x position variance",
+closest_punting_player_separation = "distance between gunner and closest player on punting team",
+closest_punting_snap_separation = "distance between gunner and closest player on puting team at the snap",
+var_s_theta = "angular velocity",
+punt_dis_from_los = "punt distance from line of scrimmage",
+ball_land_dis_from_los = "ball land distance from line of scrimmage",
+closest_receiving_snap_separation = "gunner distance to closest opposing team player at snap",
+Vises = "# of Vises on Receiving Team"
+                      ))
+
+Effects %>% 
+  dplyr::arrange(desc(rel.inf)) %>%
+  dplyr::top_n(15) %>%
+  ggplot(aes(x = forcats::fct_reorder(.f = var,
+                                      .x = rel.inf),
+             y = rel.inf,
+             fill = rel.inf)) +
+  geom_col() +
+  coord_flip() +
+  scale_color_brewer(palette = "Dark2") +
+  theme_classic() +
+  theme(axis.title = element_text(),
+        legend.position = "none",
+        axis.text.x = element_text(size=6)) +
+  xlab('Features') +
+  ylab('Relative Influence') +
+  labs(title = "Tackle Opportunity Feature Importance Model",size=10) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 50))
+
+
+
+
+
+
+
+
+
+```
+
+What this boils down to is the commitment to the angle of pursuit at the snap. We can see this by visualizing all of Webster's punt routes for received punts (Green lines are tackles; Blue lines are missed tackles and Grey lines are non-tackles). In the first few seconds of the snap, you see a rather clean angle being formed and that's due to the gunner's commitment to the angle. 
+
+```{r a4,echo=FALSE,warning=FALSE,message=FALSE}
+
+
+
+
+data_model<-read.csv("data_transforms/ball_distance_pred.csv")
+tracking_tacklers<-read.csv("data_transforms/tackler_tracking_2020.csv")
+#players<-read.csv("players.csv")
+
+tracking_tacklers<-tracking_tacklers %>%
+  group_by(gameId,playId,nflId) %>%
+  summarize(Tackler = sum(Tackler),
+            AssistTackler = sum(AssistTackler),
+            MissedTackler = sum(MissedTackler))
+
+#data_model<-data_model %>%
+#  left_join(players,by=c("nflId"))
+
+pos_min<-data_model %>%
+  group_by(gameId,playId,nflId) %>%
+  summarize(min_x = min(x))
+
+### webster 48784
+data_model<-data_model %>%
+  left_join(tracking_tacklers,by=c("gameId","playId","nflId")) 
+
+#web<-data_model %>%
+#  filter(nflId %in% c("48784","33234","38707"))
+
+web<-data_model %>%  filter(nflId == "48784")
+
+web<-web %>%
+  left_join(pos_min,by=c("gameId","playId","nflId"))
+
+#web<-web %>%
+#  mutate(x = x - min_x)
+
+web<-web %>%
+  group_by(playId) %>%
+  mutate(id = 1:n(),
+         tackleOpp = ifelse(Tackler > 0,"Tackle",
+                            ifelse(AssistTackler > 0,"AssistTackler",
+                                   ifelse(MissedTackler > 0, "MissedTackler","No Tackle Opp"))))
+
+
+web<-web %>%
+  filter(id < 75)
+####### FIELD #####
+
+## General field boundaries
+xmin <- 0
+xmax <- 160/3
+hash.right <- 38.35
+hash.left <- 12
+hash.width <- 3.3
+
+
+
+## Specific boundaries for a given play
+ymin <- max(round(min(web$x - web$min_x, na.rm = TRUE) - 10, -1), 0)
+ymax <- min(round(max(web$x - web$min_x, na.rm = TRUE) + 10, -1), 120)
+df_hash <- expand.grid(x = c(0, 23.36667, 29.96667, xmax), y = (10:110))
+df_hash <- df_hash %>% filter(!(floor(y %% 5) == 0))
+df_hash <- df_hash %>% filter(y < ymax, y > ymin)
+
+animate_play <- ggplot() +
+  scale_size_manual(values = c(6, 4, 6), guide = FALSE) + 
+  scale_shape_manual(values = c(21, 16, 21), guide = FALSE) +
+  scale_fill_manual(values = c("#e31837", "#654321", "#002244"), guide = FALSE) + 
+  scale_colour_manual(values = c("black", "#654321", "#c60c30"), guide = FALSE) + 
+  annotate("text", x = df_hash$x[df_hash$x < 55/2], 
+           y = df_hash$y[df_hash$x < 55/2], label = "_", hjust = 0, vjust = -0.2) + 
+  annotate("text", x = df_hash$x[df_hash$x > 55/2], 
+           y = df_hash$y[df_hash$x > 55/2], label = "_", hjust = 1, vjust = -0.2) + 
+  annotate("segment", x = xmin, 
+           y = seq(max(10, ymin), min(ymax, 110), by = 5), 
+           xend =  xmax, 
+           yend = seq(max(10, ymin), min(ymax, 110), by = 5)) + 
+  annotate("text", x = rep(hash.left, 11), y = seq(10, 110, by = 10), 
+           label = c("G   ", seq(10, 50, by = 10), rev(seq(10, 40, by = 10)), "   G"), 
+           angle = 270, size = 4) + 
+  annotate("text", x = rep((xmax - hash.left), 11), y = seq(10, 110, by = 10), 
+           label = c("   G", seq(10, 50, by = 10), rev(seq(10, 40, by = 10)), "G   "), 
+           angle = 90, size = 4) + 
+  annotate("segment", x = c(xmin, xmin, xmax, xmax), 
+           y = c(ymin, ymax, ymax, ymin), 
+           xend = c(xmin, xmax, xmax, xmin), 
+           yend = c(ymax, ymax, ymin, ymin), colour = "black") + 
+  geom_point(data = web %>% dplyr::filter(tackleOpp == "Tackle"), aes(x = (xmax-y) + 2.5, y = x - min_x + 10), alpha = 0.7,color="light green") + 
+  geom_point(data = web %>% dplyr::filter(tackleOpp == "No Tackle Opp"), aes(x = (xmax-y) + 2.5, y = x - min_x + 10), alpha = 0.4,color="light grey") +
+  geom_point(data = web %>% dplyr::filter(tackleOpp == "MissedTackler"), aes(x = (xmax-y) + 2.5, y = x - min_x + 10), alpha = 0.7,color="light blue") +
+  ylim(ymin, ymax) + 
+  coord_fixed() +  
+  theme_nothing() + 
+  transition_time(id)  +
+  labs(title = "Nsima Webster's Punt Angles (Non Touchback Punts)") +
+  shadow_mark() +
+  ease_aes('linear') + 
+  NULL
+
+play.length.ex <- length(unique(web$id))
+animate(animate_play, fps = 10, nframe = play.length.ex)
+
+
+
+```
+
+Pulling it all together, we see that Webster had the most Tackle Opportunities of Gunners in 2020 for returnable punts but a lower TOPA (Tackle Opportunity Probability Added). A big part of his ability to create more Tackle Opportunities is his relatively high avg speed and higher separation from other vises. Contrary to Webster in strategy is Justin Bethel, who had the one of the highest avg. TOPA due to his high avg speed, high avg max speed, and low speed variance (usually straight shot in route). Bethel was the only gunner to eclipse 20 mph in his average max speed per punt. Lastly, we see Matthew Slater listed high here and that's important to note considering he's been to 9 Pro Bowls as a Gunner (most all-time).
+
+
+```{r a5,echo=FALSE,warning=FALSE,message=FALSE}
+
+library(gt)
+
+
+#https://github.com/nflverse/nflfastR-roster/blob/master/data/nflfastR-roster.rds
+
+### TABLE from  https://themockup.blog/posts/2020-10-11-embedding-images-in-ggplot/
+
+## pulled from NFL Verse for headshots ####
+
+summary_stats<-read.csv("data_transforms/summary_stats.csv")
+roster<-readRDS("viz_images/nflfastR-roster.rds")
+
+roster<-roster %>%
+  filter(season == "2020") %>%
+  select(full_name,headshot_url,team)
+
+sum<-summary_stats %>%
+  left_join(roster,by=c("displayName" = "full_name","team_name" = "team"))
+
+tab_data<- sum %>%
+  group_by(displayName,team_name,headshot_url) %>%
+  summarize(punts = n(),
+            `avg speed (mph)` = round(mean(s,na.rm = T) * 2.04545,2),
+            `avg max speed (mph)` = round(mean(max_speed,na.rm = T) * 2.04545,2),
+            `avg speed variance (mph)` = round(mean(var_s,na.rm = T) * 2.04545,2),
+            `avg vise separation` = round(mean(closest_receiving_vises_separation,na.rm = T),2),
+            `Tackle Opp.` = sum(tackleOpp),
+            `TOPA` = round(mean(pred_added,na.rm = T),3)) %>%
+  filter(punts >= 40) %>%
+  ungroup() %>%
+  mutate(RK = rank(desc(`TOPA`))) %>%
+  arrange(desc(`TOPA`),desc(`avg max speed (mph)`)) %>%
+  rename(name = displayName,
+         team = team_name,
+         headshot_href = headshot_url) %>%
+  select(RK,name,team,headshot_href,TOPA,`Tackle Opp.`,punts,`avg speed (mph)`,`avg max speed (mph)`,`avg speed variance (mph)`,`avg vise separation`) 
+  
+  
+
+
+tab_function <- function(data, ...){
+  data %>% 
+  gt() %>% 
+  text_transform(
+    locations = cells_body(vars(headshot_href)),
+    fn = function(x){
+      web_image(
+        url = x,
+        height = px(30)
+      )
+    }
+  ) %>% 
+  cols_label(
+    RK = "RK",
+    headshot_href = "",
+    name = "Name",
+    team = "Team",
+    TOPA = "TOPA",
+    `Tackle Opp.` = "Tackle Opp.",
+    punts = "Punts",
+    `avg speed (mph)` = "Avg speed (MPH)",
+    `avg max speed (mph)` = "Avg Max Speed (MPH)",
+    `avg speed variance (mph)` = "Avg Speed Variance (MPH)",
+    `avg vise separation` = "Avg Vise Separation (Yds)"
+  ) %>% 
+  data_color(
+    columns = vars(`TOPA`),
+    colors = scales::col_numeric(
+      palette = c("#af8dc3", "#f7f7f7", "#7fbf7b"),
+      domain = c(0, .2)
+    )
+  ) %>% 
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = vars(RK, name,team)
+    )
+  ) %>% 
+  tab_options(
+    column_labels.background.color = "white",
+    column_labels.font.weight = "bold",
+    table.border.top.width = px(3),
+    table.border.top.color = "transparent",
+    table.border.bottom.color = "transparent",
+    table.border.bottom.width = px(3),
+    column_labels.border.top.width = px(3),
+    column_labels.border.top.color = "transparent",
+    column_labels.border.bottom.width = px(3),
+    column_labels.border.bottom.color = "black",
+    data_row.padding = px(3),
+    source_notes.font.size = 12,
+    table.font.size = 12,
+    heading.align = "left",
+    ...
+  ) %>%
+  opt_table_font(
+    font = list(
+      google_font("Chivo"),
+      default_fonts()
+    )
+  )   %>%
+  tab_footnote(
+    footnote = "RK = Avg TOPA rank",
+    locations = cells_column_labels(
+      columns = RK
+    )) %>%
+  tab_footnote(
+    footnote = "TOPA = Avg. Tackle Probability Added (Avg Delta of Probability at Punt Reception and Probability at Snap)",
+    locations = cells_column_labels(
+      columns = TOPA
+    )) %>%
+  tab_footnote(
+    footnote = "Tackle Opp = Counts involvement in a tackle: Tackle, Missed or Assisted",
+    locations = cells_column_labels(
+      columns = `Tackle Opp.`
+    )) %>%
+  tab_footnote(
+    footnote = "Avg of Highest Speed Reached per punt play",
+    locations = cells_column_labels(
+      columns = `avg max speed (mph)`
+    ))
+
+}  
+
+
+a<-tab_data %>% 
+  slice(1:12) %>% 
+  tab_function()
+
+
+a
+
+
+
+            
+    
+    
+  
+
+
+```
+
+
+
+### Expected Gunner Distance to Ball and Expected Return Yards
+TOPA is a helpful metric to evaluate what Gunner's put themselves in the best position for a tackle opportunity on a punt play. However, as we see know not every punt play is returned by the returner. To help to evaluate players in all punts, we are creating two more models to evaluate which Gunner's get close to the returner at punt reception and which Gunners are the best at limiting return yardage. 
+
+The distribution chart below illustrates that there is vast difference amongst a gunner's ability to get to the ball for a given punt play, which indicates that some gunners are better at getting to the returner and thus limiting return yardage. 
+
+```{r a6,echo=FALSE,warning=FALSE,message=FALSE}
+
+
+
+load("viz_images/gpd.rdata")
+gunner_position_dis
+
+
+
+```
+
+
+This leads to the creation of the **Expected Distance to Ball** and **Expected Return Yards** models, which were both trained using a Random Forest regression model and optimized using a 10-fold repeated cross validation (5x). This helps to resample the dataset to prevent any training bias. The purpose of the first model is to predict what a gunner's distance to ball will be. The prediction at punt reception will be used to compare to where the gunner's actual distance is versus expectation. The purpose of the second model, is to understand how a player's proximity, speed, and other variables (same used to predict tackle opportunity probability) can influence return yardage. The prediction at punt reception can used as the official metric to evaluate how a gunner can limit return yardage. 
+
+To evaluate the accuracy and effectiveness of the models, R-squared, Root Mean Square Error (RMSE), and Mean Absolute Error (MAE) were chosen as the main model evaluation metrics. R-squared represents how close the predictions are to the actual values from a proportional or percentage value, which for these two models we got >98%. RMSE is a measurement of error rate for all observations and MAE is the mean error. We can see below that both these models have less than a 2% error rate (RMSE) and an average observed difference of less than 1 yard (MAE). 
+
+Ball Distance Metrics: \
+-R-squared: 0.990\
+-RMSE: 0.950 \
+-MAE: 0.520 \
+
+Return Yards Metrics: \
+-R-squared: 0.983 \
+-RMSE: 1.61 \
+-MAE: 0.687 \
+
+There are two applications of these models. The first is shown below as a way to augment film study by showing per punt how the gunner was able to get to the returner. To visualize the prediction, three lines were added to the sample play to show these models prediction per second. The first line (in red) shows the expected return yardage from the punt returner. The second two lines (in grey) show the predicted distance each gunner will be the punt returner by the point of reception. We can see how the predictions change as the play develops. 
+
+```{r a8,echo=FALSE,warning=FALSE,message=FALSE}
+
+
+
+library(tidyverse)
+library(gganimate)
+
+## ball_distance_prod
+data_model<-read_csv("data_transforms/ball_distance_pred.csv")
+
+### return prod
+dm<-read_csv("data_transforms/return_yards_pred.csv")
+
+
+sample<-read_csv("data_transforms/sample_tackle_prob.csv")
+
+#webster pred
+gr1<-data_model %>% select(gameId,playId,nflId,frameId,ball_distance_pred) %>%
+  filter(nflId == "48784") %>%
+  rename(ball_distance_pred_gr1 = ball_distance_pred)
+
+gr2<-data_model %>% select(gameId,playId,nflId,frameId,ball_distance_pred) %>%
+  filter(nflId == "47862") %>%
+  rename(ball_distance_pred_gr2 = ball_distance_pred)
+
+return_prob<-dm %>% select(gameId,playId,nflId,frameId,return_yards_pred) %>%
+  filter(nflId == "48784")
+
+
+returner<-sample %>%
+  select(gameId,playId,nflId,frameId,x,y) %>%
+  filter(nflId == "48988") %>%
+  rename(returner_x = x,
+         returner_y = y)
+
+
+example_play<-sample %>%
+  left_join(gr1,sample,by=c("gameId","playId","frameId")) %>%
+  left_join(gr2,sample,by=c("gameId","playId","frameId")) %>%
+  left_join(returner,by=c("gameId","playId","frameId")) %>%
+  left_join(return_prob,by=c("gameId","playId","frameId"))
+
+example_play<-example_play %>%
+  mutate(pred_pos_gr1 = returner_x - ball_distance_pred_gr1,
+         pred_pos_gr2 = returner_x - ball_distance_pred_gr2,
+         pred_return_yards = returner_x - return_yards_pred)
+
+# from https://www.kaggle.com/adamsonty/nfl-big-data-bowl-a-basic-field-control-model
+
+
+
+### horizontal animation ###
+
+
+
+
+
+
+
+
+plot_field <- function(field_color="#006400", line_color = "#212529", number_color = "#ffffff") {
+  field_height <- 160/3
+  field_width <- 120
+  
+  field <- ggplot() +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(size = 13, hjust = 0.5),
+      plot.subtitle = element_text(hjust = 1),
+      legend.position = "bottom",
+      legend.title.align = 1,
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      axis.line = element_blank(),
+      panel.background = element_rect(fill = field_color, color = "white"),
+      panel.border = element_blank(),
+      aspect.ratio = field_height/field_width
+    ) +
+    # major lines
+    annotate(
+      "segment",
+      x = c(0, 0, 0,field_width, seq(10, 110, by=5)),
+      xend = c(field_width,field_width, 0, field_width, seq(10, 110, by=5)),
+      y = c(0, field_height, 0, 0, rep(0, 21)),
+      yend = c(0, field_height, field_height, field_height, rep(field_height, 21)),
+      colour = line_color
+    ) +
+    # hashmarks
+    annotate(
+      "segment",
+      x = rep(seq(10, 110, by=1), 4),
+      xend = rep(seq(10, 110, by=1), 4),
+      y = c(rep(0, 101), rep(field_height-1, 101), rep(160/6 + 18.5/6, 101), rep(160/6 - 18.5/6, 101)),
+      yend = c(rep(1, 101), rep(field_height, 101), rep(160/6 + 18.5/6 + 1, 101), rep(160/6 - 18.5/6 - 1, 101)),
+      colour = line_color
+    ) +
+    # yard numbers
+    annotate(
+      "text",
+      x = seq(20, 100, by = 10),
+      y = rep(12, 9),
+      label = c(seq(10, 50, by = 10), rev(seq(10, 40, by = 10))),
+      size = 10,
+      colour = number_color,
+    ) +
+    # yard numbers upside down
+    annotate(
+      "text",
+      x = seq(20, 100, by = 10),
+      y = rep(field_height-12, 9),
+      label = c(seq(10, 50, by = 10), rev(seq(10, 40, by = 10))),
+      angle = 180,
+      size = 10,
+      colour = number_color, 
+    )
+  
+  return(field)
+}
+
+example_play$gr1<-"Nsima Webster (#14)"
+example_play$gr2<-"David Long (#25)"
+example_play$pred_return<-"Exp. Return Yards"
+example_play$team_name<-as.character(example_play$team_name)
+example_play$homeTeamAbbr<-as.character(example_play$homeTeamAbbr)
+example_play$visitorTeamAbbr<-as.character(example_play$visitorTeamAbbr)
+line_of_scrimmage = example_play$absoluteYardlineNumber
+to_go_line = line_of_scrimmage - example_play$yardsToGo
+df_colors = data.frame(home_1 = 'yellow',
+                       home_2 = 'dark blue',
+                       away_1 = 'blue',
+                       away_2 = 'light grey')
+
+example_play$frameId<-as.numeric(example_play$frameId)
+
+play_frames<-plot_field() + 
+  # line of scrimmage
+  annotate(
+    "segment",
+    x = line_of_scrimmage, xend = line_of_scrimmage, y = 0, yend = 160/3,
+    colour = "#0d41e1", size = 1.5
+  ) +  # first down marker
+  annotate(
+    "segment",
+    x = to_go_line, xend = to_go_line, y = 0, yend = 160/3,
+    colour = "#f9c80e", size = 1.5
+  )  +  # away team velocities
+  geom_segment(
+    data = example_play %>% dplyr::filter(team_name == visitorTeamAbbr),
+    mapping = aes(x = x, y = y, xend = x + dir_x, yend = y + dir_y),
+    color = df_colors$away_1, size = 5, arrow = arrow(length = unit(1, "cm"),ends="last")
+  )  + # home team velocities
+  geom_segment(
+    data = example_play %>% dplyr::filter(team_name == example_play$homeTeamAbbr),
+    mapping = aes(x = x, y = y, xend = x + dir_x, yend = y + dir_y),
+    colour = df_colors$home_2, size = 2, arrow = arrow(length = unit(0.03, "npc"))
+  ) +  # away team locs and jersey numbers
+  geom_point(
+    data = example_play %>% dplyr::filter(team_name == example_play$visitorTeamAbbr),
+    mapping = aes(x = x, y = y),
+    fill = "#f8f9fa", colour = df_colors$away_2,
+    shape = 21, alpha = 0.7, size = 8, stroke = 1.5
+  )  + ## gunner 1 pred
+  geom_segment(
+    data = example_play,
+    mapping = aes(x = example_play$pred_pos_gr1, xend = example_play$pred_pos_gr1,y=0,yend = 160/3),
+    color = "light grey",size = 1,lty =2
+  ) + 
+  geom_label(data=example_play, aes(x=example_play$pred_pos_gr1, y=50,  label = example_play$gr1),
+             nudge_x = -2) +
+  #gunner 2 pred
+  geom_segment(
+    data = example_play,
+    mapping = aes(x = example_play$pred_pos_gr2, xend = example_play$pred_pos_gr2,y=0,yend = 160/3),
+    color = "dark grey",size = 1,lty =2
+  ) +
+  geom_label(data=example_play, aes(x=example_play$pred_pos_gr2, y=0,  label = example_play$gr2),fill="dark grey",
+             nudge_x = -2) +
+   ## Returner Yards
+  geom_segment(
+    data = example_play,
+    mapping = aes(x = example_play$pred_return_yards, xend = example_play$pred_return_yards,y=0,yend = 160/3),
+    color = "red",size = 1,lty =2
+  ) + 
+  geom_label(data=example_play, aes(x=example_play$pred_return_yards, y=40,  label = example_play$pred_return),fill = "light grey",
+             nudge_x = -3) +
+  geom_text(
+    data = example_play %>% dplyr::filter(team_name == example_play$visitorTeamAbbr),
+    mapping = aes(x = x, y = y, label = jerseyNumber),
+    colour = df_colors$away_1, size = 4.5
+  ) +
+  # home team locs and jersey numbers
+  geom_point(
+    data = example_play %>% dplyr::filter(team_name == example_play$homeTeamAbbr),
+    mapping = aes(x = x, y = y),
+    fill = df_colors$home_1, colour = df_colors$home_2,
+    shape = 21, alpha = 0.7, size = 8, stroke = 1.5
+  )  + geom_text(
+    data = example_play %>% dplyr::filter(team_name == example_play$homeTeamAbbr),
+    mapping = aes(x = x, y = y, label = jerseyNumber),
+    colour = df_colors$home_2, size = 4.5 
+  )  + # ball
+  geom_point(
+    data = example_play %>% dplyr::filter(team == "football"),
+    mapping = aes(x = x, y = y),
+    fill = "#935e38", colour = "#d9d9d9",
+    shape = 21, alpha = 0.7, size = 6, stroke = 1
+  ) +
+  labs(title = example_play$playDescription[1]) +
+  transition_time(frameId) +
+  ease_aes('linear') +
+  NULL
+
+
+play_length <- length(unique(sample$frameId))
+
+
+
+play_anim <- animate(
+  play_frames,
+  fps = 10, 
+  nframes = play_length,
+  width = 800,
+  height = 400,
+  end_pause = 0
+)
+
+
+play_anim
+
+
+
+```
+
+
+### Gunner's Return Yard Under Expected and Ball Distance Under Expected ###
+The second application of the model is to evaluate what occurred at punt reception versus expectation. The average delta will be created as a metric for evaluation of Gunners. This leads to the creation of the **Return Yards Under Expected (RYUE)** and **Ball Distance Under Expected (BDUE)**. The Gunners who were able to limit the most return yardage and get closer to the ball than expected would ultimately be best at their position. Similar to TOPA, we see Matthew Slater and Justin Bethel rank towards the top. What is interesting about Webster, is he ranks high in his ability to get to the ball (BDUE) but doesn't put himself in the best position to limit return yardage, which was a similar theme for his lower TOPA compared to other Gunners. J.T. Gray also ranks high BDUE (~7 yards closer to the ball than expected on average), and RYUE. 
+
+
+
+
+```{r a10,echo=FALSE,message=FALSE,warning=FALSE}
+
+library(gt)
+#https://github.com/nflverse/nflfastR-roster/blob/master/data/nflfastR-roster.rds
+
+## pulled from NFL Verse for headshots ####
+roster<-readRDS("viz_images/nflfastR-roster.rds")
+summary_stats<-read.csv("data_transforms/summary_stats.csv")
+
+summary_stats$fc_RYUE<-ifelse(summary_stats$event == "fair_catch",summary_stats$return_yds_under,NA)
+
+roster<-roster %>%
+  filter(season == "2020") %>%
+  select(full_name,headshot_url,team)
+
+sum<-summary_stats %>%
+  left_join(roster,by=c("displayName" = "full_name","team_name" = "team"))
+
+tab_data<- sum %>%
+  group_by(displayName,Position,team_name,headshot_url) %>%
+  summarize(punts = n(),
+            `Ball Distance Under Exp.` = round(mean(distance_under,na.rm = T),3),
+            `Return Yards Under Exp.` = round(mean(return_yds_under,na.rm = T),3), 
+            `Return Yards Under Exp. (Non-Fair Catch)` = round(mean(non_fc_RYUE,na.rm = T),3),
+            `Return Yards Under Exp. (Fair Catch)` = round(mean(fc_RYUE,na.rm = T),3),
+            `Avg. Max Acceleration` = round(mean(max_accel,na.rm = T),2),
+            `Avg. Max Speed` = round(mean(max_speed,na.rm = T),2),
+            `Tackle Opp.` = sum(tackleOpp),
+            `TPA` = round(mean(pred_added,na.rm = T),3)) %>%
+  filter(punts >= 40) %>%
+  ungroup() %>%
+  mutate(RK = rank(`Return Yards Under Exp.`)) %>%
+  arrange(`Return Yards Under Exp.`,`Ball Distance Under Exp.`) %>%
+  rename(name = displayName,
+         pos = Position,
+         team = team_name,
+         headshot_href = headshot_url) %>%
+  select(RK,name,team,headshot_href,`Return Yards Under Exp.`,`Ball Distance Under Exp.`,`Return Yards Under Exp. (Non-Fair Catch)`,`Return Yards Under Exp. (Fair Catch)`,punts) 
+  
+  
+
+
+tab_function <- function(data, ...){
+  data %>% 
+  gt() %>% 
+  text_transform(
+    locations = cells_body(vars(headshot_href)),
+    fn = function(x){
+      web_image(
+        url = x,
+        height = px(30)
+      )
+    }
+  ) %>% 
+  cols_label(
+    RK = "RK",
+    headshot_href = "",
+    name = "Name",
+    team = "Team",
+    `Return Yards Under Exp.` = "RYUE",
+    `Ball Distance Under Exp.` = "BDUE",
+    `Return Yards Under Exp. (Non-Fair Catch)` = "RYUE (Non Fair Catch)",
+    `Return Yards Under Exp. (Fair Catch)` = "RYUE (Fair Catch)",
+    punts = "Punts"
+  ) %>% 
+  data_color(
+    columns = vars(`Return Yards Under Exp.`),
+    colors = scales::col_numeric(
+      palette = c("#7fbf7b", "#f7f7f7","#af8dc3"),
+      domain = c(-2, 2)
+    )
+  ) %>% 
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = vars(RK, team, name)
+    )
+  ) %>% 
+  tab_options(
+    column_labels.background.color = "white",
+    column_labels.font.weight = "bold",
+    table.border.top.width = px(3),
+    table.border.top.color = "transparent",
+    table.border.bottom.color = "transparent",
+    table.border.bottom.width = px(3),
+    column_labels.border.top.width = px(3),
+    column_labels.border.top.color = "transparent",
+    column_labels.border.bottom.width = px(3),
+    column_labels.border.bottom.color = "black",
+    data_row.padding = px(3),
+    source_notes.font.size = 12,
+    table.font.size = 12,
+    heading.align = "left",
+    ...
+  ) %>%
+  opt_table_font(
+    font = list(
+      google_font("Chivo"),
+      default_fonts()
+    )
+  ) %>%
+  tab_footnote(
+    footnote = "RYUE = Avg. Return Yards Under Expected",
+    locations = cells_column_labels(
+      columns = `Return Yards Under Exp.`
+    )) %>%
+  tab_footnote(
+    footnote = "BDUE = Avg. Distance to Ball Under Expected",
+    locations = cells_column_labels(
+      columns = `Ball Distance Under Exp.`
+    )) %>%
+  tab_footnote(
+    footnote = "Filters RYUE for punts that were not fair caught",
+    locations = cells_column_labels(
+      columns = `Return Yards Under Exp. (Non-Fair Catch)`
+    )) %>%
+  tab_footnote(
+    footnote = "Filters RYUE for punts that were fair caught",
+    locations = cells_column_labels(
+      columns = `Return Yards Under Exp. (Fair Catch)`
+    ))
+
+  
+}  
+
+
+a<-tab_data %>% 
+  slice(1:12) %>% 
+  tab_function()
+
+
+a
+
+
+  
+
+
+```
+
+### Application of Models & Future Opportunities
+These models were specifically designed with the intent to evaluate Gunner's effectiveness in punt plays but could easily be extended to evaluate other players on the punt play (Vises, others in pursuit). Other players on the punt team can use the learnings of the model to fine tune their speed, direction and angle as a way to commit to the angle of pursuit. Another application of the models is to help to augment film review using the tackle opportunity probability visualization, distance to ball, and expected return yards all by frame. These visualizations could easily be replicated for other punt plays as a way for players to understand their attack to a returner. Lastly, knowing that Gunner's with the best commitment to angle of pursuit are able to limit return yardage, it may make sense for returning teams to have a vise (or other player), 10-15 yards from the line of scrimmage as a way to create more room to block for the return and cut off the angle for the Gunner (This was shown in our sample play). 
+
+ 
+
+
+
+[Source Code](https://github.com/qmaclean/BDB_22) 
+
+[Personal Twitter](https://twitter.com/QuinnsWisdom)
+
+[Kaggle](https://www.kaggle.com/qmaclean/evaluating-gunner-s-performance)
+
+
+
+
+
+
