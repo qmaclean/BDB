@@ -17,7 +17,7 @@ We will be using 2020 tracking and scouting information to create four metrics t
 1. **Tackle Opportunity Probability Added (TOPA)**: The difference in expected probability of getting a tackle opportunity added from snap to punt received
 2. **Gunner’s Distance to Ball at Punt Reception Under Expected (BDUE)**: The difference in Gunner’s x-position to ball versus what was expected
 3. **Return Yards Under Expected (RYUE)**: The difference in actual return yards versus what was expected based on the Gunner’s location metrics at punt reception
-4. **Return Yards Under Exepcted (Non-Fair Catch Punts)**: The difference in actual return yards versus what was expected based on the Gunner’s location metrics at punt reception for non-fair catch punts
+4. **Return Yards Under Expected (Non-Fair Catch Punts)**: The difference in actual return yards versus what was expected based on the Gunner’s location metrics at punt reception for non-fair catch punts
 These four metrics will help to measure which gunners help to limit the opposing team’s starting position.
 
 # Tackle Opportunity Probability Added (TOPA)
